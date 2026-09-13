@@ -205,8 +205,11 @@ def build_comparison_html(df: pd.DataFrame, rep_cols: list, max_height: int = 48
         cells += f"<td style='padding:9px 10px;text-align:center;color:#6b7280;font-size:0.85rem;'>{html.escape(str(row['ظرفیت']))}</td>"
         for rep in rep_cols:
             val = row[rep]
-            color = "#111827" if val > 0 else "#ef4444"
-            cells += f"<td style='padding:9px 10px;text-align:center;color:{color};font-weight:600;'>{val}</td>"
+            if pd.isna(val):
+                cells += "<td style='padding:9px 10px;text-align:center;color:#cbd5e1;'>—</td>"
+            else:
+                color = "#111827" if val > 0 else "#ef4444"
+                cells += f"<td style='padding:9px 10px;text-align:center;color:{color};font-weight:600;'>{int(val)}</td>"
         cells += f"<td style='padding:9px 10px;text-align:center;font-weight:800;color:#111827;'>{row['جمع کل']}</td>"
         rows_html.append(f"<tr style='background:{bg};'>{cells}</tr>")
 
@@ -331,7 +334,7 @@ with st.sidebar:
         if dcs:
             latest_df = data[dcs[0]]
             total = int(latest_df["تعداد"].sum(skipna=True))
-            low = int((latest_df["تعداد"] < threshold).sum())
+            low = int(latest_df["تعداد"].lt(threshold).fillna(False).sum())
         else:
             total, low = None, 0
         rep_latest_totals[name] = total
@@ -490,8 +493,8 @@ if merged is None:
     st.stop()
 
 rep_cols = [c for c in merged.columns if c != "عنوان کالا"]
-merged[rep_cols] = merged[rep_cols].apply(lambda s: s.fillna(0).astype(int))
-merged["جمع کل"] = merged[rep_cols].sum(axis=1)
+merged[rep_cols] = merged[rep_cols].apply(lambda s: pd.to_numeric(s, errors="coerce"))  # NaN باقی می‌مونه (یعنی گزارش نشده)
+merged["جمع کل"] = merged[rep_cols].sum(axis=1, skipna=True).astype(int)  # برای جمع، خالی = صفر منطقیه
 merged["ظرفیت"] = merged["عنوان کالا"].apply(extract_capacity)
 merged = merged.sort_values("عنوان کالا").reset_index(drop=True)
 
@@ -522,7 +525,7 @@ with bottom1:
         if not dcs:
             continue
         latest = data[dcs[0]]
-        low = latest[latest["تعداد"] < threshold]
+        low = latest[latest["تعداد"].lt(threshold).fillna(False)]
         for _, r in low.iterrows():
             low_rows.append({"نماینده": name, "عنوان کالا": r["عنوان کالا"], "موجودی": int(r["تعداد"])})
     low_df = pd.DataFrame(low_rows).sort_values("موجودی") if low_rows else pd.DataFrame(columns=["نماینده", "عنوان کالا", "موجودی"])
