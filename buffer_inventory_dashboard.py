@@ -14,6 +14,7 @@
 
 import html
 import io
+import os
 import re
 from datetime import datetime
 
@@ -23,6 +24,39 @@ import requests
 import streamlit as st
 
 st.set_page_config(page_title="داشبورد بافر گارانتی", page_icon="📦", layout="wide")
+
+
+# ---------------------------------------------------------------------------
+# ورود با یوزر/پسورد — رمزها از Environment Variables خونده میشن (نه از کد)
+# ---------------------------------------------------------------------------
+def check_login() -> bool:
+    valid_username = os.environ.get("DASHBOARD_USERNAME", "")
+    valid_password = os.environ.get("DASHBOARD_PASSWORD", "")
+
+    if st.session_state.get("logged_in"):
+        return True
+
+    st.markdown(
+        "<div style='direction:rtl;text-align:center;margin-top:80px;'><h2>🔒 ورود به داشبورد</h2></div>",
+        unsafe_allow_html=True,
+    )
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        username = st.text_input("نام کاربری")
+        password = st.text_input("رمز عبور", type="password")
+        if st.button("ورود", use_container_width=True):
+            if not valid_username or not valid_password:
+                st.error("یوزر/پسورد روی سرور تنظیم نشده — با تنظیمات Environment Variables چک کن.")
+            elif username == valid_username and password == valid_password:
+                st.session_state["logged_in"] = True
+                st.rerun()
+            else:
+                st.error("نام کاربری یا رمز عبور اشتباهه.")
+    return False
+
+
+if not check_login():
+    st.stop()
 
 # اسم نماینده -> Sheet ID
 SHEETS = {
